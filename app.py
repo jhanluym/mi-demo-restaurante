@@ -7,9 +7,10 @@ from io import BytesIO
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Menú Restaurante", layout="wide")
 
-# --- LÓGICA DE VISUALIZACIÓN ---
-# Si la URL termina en ?view=cliente, ocultamos todo y mostramos solo la carta
-is_client = st.query_params.get("view") == "cliente"
+# --- CORRECCIÓN DE SEGURIDAD PARA EL ERROR ---
+# Convertimos los parámetros a diccionario para evitar errores de versión
+params = dict(st.query_params)
+is_client = params.get("view") == "cliente"
 
 if is_client:
     st.markdown("""<style>[data-testid="stSidebar"] {display: none !important;}</style>""", unsafe_allow_html=True)
@@ -31,14 +32,15 @@ else:
 # --- CONTENIDO ---
 if opcion == "📊 Dashboard":
     st.title("📊 Panel de Control")
-    # URL para copiar
-    url_base = st.text_input("Copia este link para tu QR:", value=f"{st.query_params.get('url', '')}?view=cliente")
-    st.info("⚠️ COPIA el link que sale arriba (asegúrate de que tenga ?view=cliente al final) y pégalo en cualquier generador de QR gratuito.")
+    st.write("Tu sistema está en línea.")
+    st.subheader("Instrucciones:")
+    st.write("Copia el link de arriba y agrégale al final: `/?view=cliente`")
+    st.write("Ejemplo: `https://tu-app.streamlit.app/?view=cliente`")
     
 elif opcion == "📦 Inventario":
     st.title("📦 Gestión de Inventario")
     df_edit = st.data_editor(df, use_container_width=True)
-    if st.button("Guardar"):
+    if st.button("Guardar Cambios"):
         df_edit.to_csv(archivo_datos, index=False, sep=';')
         st.success("Guardado")
         st.rerun()
