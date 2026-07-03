@@ -1,15 +1,20 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+import qrcode
+from io import BytesIO
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Sistema Restaurante", layout="wide")
 
-# --- FUNCIONES ---
-def registrar_log(mensaje):
-    with open('log.txt', "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {mensaje}\n")
+# --- DETECCIÓN DE MODO CLIENTE ---
+# Si en el link ponemos ?view=cliente, activamos modo oculto
+params = st.query_params
+is_client = params.get("view") == "cliente"
+
+if is_client:
+    # Ocultar menú lateral (Sidebar)
+    st.markdown("""<style>[data-testid="stSidebar"] {display: none;}</style>""", unsafe_allow_html=True)
 
 archivo_datos = 'inventario.csv'
 
@@ -17,43 +22,38 @@ archivo_datos = 'inventario.csv'
 if os.path.exists(archivo_datos):
     df = pd.read_csv(archivo_datos, sep=';')
 else:
-    data = {
-        'Plato': ['Ceviche', 'Arroz con Pato', 'Lomo Saltado'],
-        'Stock': [15, 8, 12],
-        'Ventas_Semana': [120, 85, 95],
-        'Costo': [15.0, 10.0, 18.0],
-        'Precio_Venta': [35.0, 25.0, 40.0],
-        'Imagen': ['https://via.placeholder.com/150' for _ in range(3)]
-    }
+    data = {'Plato': ['Ceviche', 'Lomo Saltado'], 'Stock': [10, 10], 'Precio_Venta': [30.0, 35.0], 'Imagen': ['' for _ in range(2)]}
     df = pd.DataFrame(data)
     df.to_csv(archivo_datos, index=False, sep=';')
 
 # --- NAVEGACIÓN ---
-st.sidebar.title("Navegación")
-opcion = st.sidebar.radio("Ir a:", ["📊 Dashboard", "📦 Inventario", "🍽️ Carta Digital"])
+if not is_client:
+    st.sidebar.title("Navegación")
+    opcion = st.sidebar.radio("Ir a:", ["📊 Dashboard", "📦 Inventario", "🍽️ Carta Digital"])
+else:
+    opcion = "🍽️ Carta Digital"
 
-# --- DASHBOARD ---
+# --- LÓGICA DE PANTALLAS ---
 if opcion == "📊 Dashboard":
     st.title("📊 Panel de Control")
-    # (Tus métricas aquí)
     st.bar_chart(df.set_index('Plato')['Stock'])
+    # Generador de QR dentro del dashboard
+    st.subheader("🔗 QR para clientes")
+    url_cliente = st.text_input("Link de la app:", "https://TU-APP-EN-STREAMLIT.streamlit.app/?view=cliente")
+    if st.button("Generar QR"):
+        qr = qrcode.make(url_cliente)
+        buf = BytesIO()
+        qr.save(buf, format="PNG")
+        st.image(buf, width=200)
 
-# --- INVENTARIO ---
 elif opcion == "📦 Inventario":
     st.title("📦 Gestión de Inventario")
-    producto = st.selectbox("Selecciona:", df['Plato'])
-    cant = st.number_input("Cantidad:", min_value=1)
-    if st.button("➕ Sumar"):
-        df.loc[df['Plato'] == producto, 'Stock'] += cant
-        df.to_csv(archivo_datos, index=False, sep=';')
-        st.rerun()
     df_edit = st.data_editor(df, use_container_width=True)
     if st.button("Guardar Cambios"):
         df_edit.to_csv(archivo_datos, index=False, sep=';')
-        st.success("Guardado")
+        st.success("Guardado exitosamente")
         st.rerun()
 
-# --- CARTA DIGITAL ---
 elif opcion == "🍽️ Carta Digital":
     st.title("🍽️ Nuestra Carta")
     st.markdown("---")
